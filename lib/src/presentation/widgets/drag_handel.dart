@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class DragHandel extends StatelessWidget {
   const DragHandel({
     super.key,
-    this.size = 10,
+    this.size = 40,
   });
 
   final double size;

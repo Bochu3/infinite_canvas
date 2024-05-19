@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'inline_painter.dart';
 
 /// A marquee widget that allows you to select multiple nodes.
-class Marquee extends StatelessWidget {
-  const Marquee({
+class Frame extends StatelessWidget {
+  const Frame({
     super.key,
     required this.start,
     required this.end,
@@ -14,7 +14,6 @@ class Marquee extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     return CustomPaint(
       painter: InlinePainter(
         brush: Paint()

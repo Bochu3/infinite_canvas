@@ -15,7 +15,7 @@ class Menus extends StatefulWidget {
     this.renameLabel,
     this.visible = true,
   });
-  
+
   final List<MenuEntry> menus;
   final InfiniteCanvasController controller;
   final String Function(String)? renameLabel;

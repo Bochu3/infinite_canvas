@@ -16,6 +16,9 @@ dependencies:
     path: ..
   random_color: ^1.0.6-nullsafety
   easy_web_view: ^1.6.0
+  saver_gallery: ^3.0.5
+  image_gallery_saver: ^2.0.3
+  permission_handler: ^9.2.0
 
 dev_dependencies:
   flutter_test:
@@ -25,3 +28,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/

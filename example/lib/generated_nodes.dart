@@ -1,8 +1,12 @@
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:image_gallery_saver/image_gallery_saver.dart';
 import 'package:infinite_canvas/infinite_canvas.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:random_color/random_color.dart';
+import 'package:saver_gallery/saver_gallery.dart';
 
 class GeneratedNodes extends StatefulWidget {
   const GeneratedNodes({super.key});
@@ -19,57 +23,63 @@ class _GeneratedNodesState extends State<GeneratedNodes> {
   void initState() {
     super.initState();
     // Generate random nodes
-    final colors = RandomColor();
-    final nodes = List.generate(100, (index) {
-      final color = colors.randomColor();
-      final size = Random().nextDouble() * 200 + 100;
-      return InfiniteCanvasNode(
-        key: UniqueKey(),
-        label: 'Node $index',
-        allowResize: true,
-        offset: Offset(
-          Random().nextDouble() * 5000,
-          Random().nextDouble() * 5000,
-        ),
-        size: Size.square(size),
-        child: Builder(
-          builder: (context) {
-            return CustomPaint(
-              painter: InlineCustomPainter(
-                brush: Paint()..color = color,
-                builder: (brush, canvas, rect) {
-                  // Draw circle
-                  final diameter = min(rect.width, rect.height);
-                  final radius = diameter / 2;
-                  canvas.drawCircle(rect.center, radius, brush);
-                },
-              ),
-            );
-          },
-        ),
-      );
-    });
+    // final colors = RandomColor();
+    // final nodes = List.generate(100, (index) {
+    //   final color = colors.randomColor();
+    //   final size = Random().nextDouble() * 200 + 100;
+    //   return InfiniteCanvasNode(
+    //     key: UniqueKey(),
+    //     label: 'Node $index',
+    //     allowResize: true,
+    //     offset: Offset(
+    //       Random().nextDouble() * 5000,
+    //       Random().nextDouble() * 5000,
+    //     ),
+    //     size: Size.square(size),
+    //     child: Builder(
+    //       builder: (context) {
+    //         return CustomPaint(
+    //           painter: InlineCustomPainter(
+    //             brush: Paint()..color = color,
+    //             builder: (brush, canvas, rect) {
+    //               // Draw circle
+    //               final diameter = min(rect.width, rect.height);
+    //               final radius = diameter / 2;
+    //               canvas.drawCircle(rect.center, radius, brush);
+    //             },
+    //           ),
+    //         );
+    //       },
+    //     ),
+    //   );
+    // });
     // Generate random edges
-    final edges = <InfiniteCanvasEdge>[];
-    for (int i = 0; i < nodes.length; i++) {
-      final from = nodes[i];
-      final to = nodes[Random().nextInt(nodes.length)];
-      if (from != to) {
-        edges.add(InfiniteCanvasEdge(
-          from: from.key,
-          to: to.key,
-          label: 'Edge $i',
-        ));
-      }
-    }
-    controller = InfiniteCanvasController(nodes: nodes, edges: edges);
+    // final edges = <InfiniteCanvasEdge>[];
+    // for (int i = 0; i < nodes.length; i++) {
+    //   final from = nodes[i];
+    //   final to = nodes[Random().nextInt(nodes.length)];
+    //   if (from != to) {
+    //     edges.add(InfiniteCanvasEdge(
+    //       from: from.key,
+    //       to: to.key,
+    //       label: 'Edge $i',
+    //     ));
+    //   }
+    // }
+    controller = InfiniteCanvasController(nodes: [], edges: []);
+
     controller.formatter = (node) {
       // snap to grid
-      node.offset = Offset(
-        (node.offset.dx / gridSize.width).roundToDouble() * gridSize.width,
-        (node.offset.dy / gridSize.height).roundToDouble() * gridSize.height,
-      );
+      // node.offset = Offset(
+      //   (node.offset.dx / gridSize.width).roundToDouble() * gridSize.width,
+      //   (node.offset.dy / gridSize.height).roundToDouble() * gridSize.height,
+      // );
     };
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // controller.pan(controller.toLocal(Offset(
+      //     MediaQuery.of(context).size.width / 6,
+      //     MediaQuery.of(context).size.height / 6)));
+    });
   }
 
   @override
@@ -86,8 +96,57 @@ class _GeneratedNodesState extends State<GeneratedNodes> {
         gridSize: gridSize,
         menus: [
           MenuEntry(
+            label: 'Generate',
+            onPressed: () {
+              if (controller.checkFrameSelection()) {
+                print('overlap');
+              } else {
+                controller.generate([]);
+              }
+            },
+          ),
+          MenuEntry(
             label: 'Create',
             menuChildren: [
+              MenuEntry(
+                label: 'Lock',
+                onPressed: () {
+                  controller.lockNodes();
+                },
+              ),
+              MenuEntry(
+                label: 'Hide frame',
+                onPressed: () {
+                  controller.hideFrame();
+                },
+              ),
+              MenuEntry(
+                label: 'Image',
+                onPressed: () {
+                  final node = InfiniteCanvasNode(
+                    key: UniqueKey(),
+                    label: 'Node ${controller.nodes.length}',
+                    allowResize: true,
+                    offset: controller.getOffsetCenter(),
+                    size: Size(
+                      960,
+                      960,
+                    ),
+                    child: Builder(
+                      builder: (context) {
+                        return Container(
+                          padding: EdgeInsets.all(50),
+                          decoration: BoxDecoration(
+                              image: DecorationImage(
+                                  fit: BoxFit.contain,
+                                  image: AssetImage('assets/test.png'))),
+                        );
+                      },
+                    ),
+                  );
+                  controller.add(node);
+                },
+              ),
               MenuEntry(
                 label: 'Circle',
                 onPressed: () {
@@ -190,6 +249,40 @@ class _GeneratedNodesState extends State<GeneratedNodes> {
           MenuEntry(
             label: 'Info',
             menuChildren: [
+              MenuEntry(
+                label: 'Frame',
+                onPressed: () async {
+                  Uint8List? bytes = await controller.captureFrame();
+                  if (bytes == null) return;
+                  final result = await SaverGallery.saveImage(bytes,
+                      quality: 80, name: 'box', androidExistNotSave: false);
+                  print(result);
+                },
+              ),
+              MenuEntry(
+                label: 'Canvas',
+                onPressed: () async {
+                  await Permission.storage.request();
+                  await Permission.photos.request();
+                  Uint8List? bytes = await controller.captureCanvas();
+                  if (bytes == null) return;
+                  final result = await SaverGallery.saveImage(bytes,
+                      quality: 80, name: 'canvas', androidExistNotSave: false);
+                  print(result);
+                },
+              ),
+              MenuEntry(
+                label: 'Portrait',
+                onPressed: () {
+                  controller.updateFrameSize(Size(512, 768));
+                },
+              ),
+              MenuEntry(
+                label: 'Square',
+                onPressed: () {
+                  controller.updateFrameSize(Size.square(640));
+                },
+              ),
               MenuEntry(
                 label: 'Cycle',
                 onPressed: () {

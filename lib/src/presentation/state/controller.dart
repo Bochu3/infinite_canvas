@@ -1,11 +1,18 @@
 import 'dart:math';
+import 'dart:typed_data';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/widgets.dart';
+import 'package:image/image.dart';
 
 import '../../domain/model/edge.dart';
 import '../../domain/model/graph.dart';
 import '../../domain/model/node.dart';
+
+import 'dart:ui' as ui;
 
 typedef NodeFormatter = void Function(InfiniteCanvasNode);
 
@@ -23,10 +30,18 @@ class InfiniteCanvasController extends ChangeNotifier implements Graph {
     }
   }
 
-  double minScale = 0.4;
-  double maxScale = 4;
+  GlobalKey canvasKey = GlobalKey();
+  LocalKey frameKey = UniqueKey();
+
+  double minScale = 0.25;
+  double maxScale = 2;
   final focusNode = FocusNode();
   Size? viewport;
+  Size canvasSize = const Size(4096, 4096);
+  bool frameVisible = true;
+  bool processing = false;
+  String capture = 'completed';
+  Map<LocalKey, PageController> pageControllers = {};
 
   @override
   final List<InfiniteCanvasNode> nodes = [];
@@ -60,9 +75,11 @@ class InfiniteCanvasController extends ChangeNotifier implements Graph {
   }
 
   final Map<Key, Offset> _selectedOrigins = {};
-
-  late final transform = TransformationController();
+  final initialMatrix = Matrix4.identity()..scale(0.4);
+  late final transform = TransformationController(initialMatrix);
   Matrix4 get matrix => transform.value;
+  late double xTranslate;
+  late double yTranslate;
   Offset mousePosition = Offset.zero;
   Offset? mouseDragStart;
   Offset? marqueeStart, marqueeEnd;
@@ -91,6 +108,14 @@ class InfiniteCanvasController extends ChangeNotifier implements Graph {
   set linkEnd(Offset? value) {
     if (value == _linkEnd) return;
     _linkEnd = value;
+    notifyListeners();
+  }
+
+  Size _frameSize = const Size(640, 640);
+  Size get frameSize => _frameSize;
+  set frameSize(Size value) {
+    if (value == _frameSize) return;
+    _frameSize = value;
     notifyListeners();
   }
 
@@ -150,6 +175,13 @@ class InfiniteCanvasController extends ChangeNotifier implements Graph {
 
   Rect getMaxSize() {
     Rect rect = Rect.zero;
+    // if (nodes.isEmpty) return rect;
+    // rect = Rect.fromLTRB(
+    //     nodes.map((e) => e.rect.left).reduce(min),
+    //     nodes.map((e) => e.rect.top).reduce(min),
+    //     nodes.map((e) => e.rect.right).reduce(max),
+    //     nodes.map((e) => e.rect.bottom).reduce(max));
+    // Offset offset = getPositionOffset();
     for (final child in nodes) {
       rect = Rect.fromLTRB(
         min(rect.left, child.rect.left),
@@ -161,12 +193,35 @@ class InfiniteCanvasController extends ChangeNotifier implements Graph {
     return rect;
   }
 
+  Rect getMinSize() {
+    Rect rect = Rect.zero;
+    List<InfiniteCanvasNode<dynamic>> images =
+        nodes.where((e) => e.key != frameKey).toList();
+    if (images.isEmpty) return rect;
+    rect = Rect.fromLTRB(
+        images.map((e) => e.rect.left).reduce(min),
+        images.map((e) => e.rect.top).reduce(min),
+        images.map((e) => e.rect.right).reduce(max),
+        images.map((e) => e.rect.bottom).reduce(max));
+    return rect;
+  }
+
+  double getTop() {
+    if (nodes.isEmpty) return 0;
+    return nodes.map((e) => e.rect.top).reduce(min);
+  }
+
+  double getLeft() {
+    if (nodes.isEmpty) return 0;
+    return nodes.map((e) => e.rect.left).reduce(min);
+  }
+
   bool isSelected(LocalKey key) => _selected.contains(key);
   bool isHovered(LocalKey key) => _hovered.contains(key);
 
   bool get hasSelection => _selected.isNotEmpty;
 
-  bool get canvasMoveEnabled => !mouseDown;
+  bool get canvasMoveEnabled => selection.isEmpty;
 
   Offset toLocal(Offset global) {
     return transform.toScene(global);
@@ -212,6 +267,26 @@ class InfiniteCanvasController extends ChangeNotifier implements Graph {
       }
     } else {
       deselectAll(hover);
+    }
+  }
+
+  bool checkFrameSelection() {
+    var frame = getNode(frameKey)!;
+    final selection = <Key>{};
+    final rect = Rect.fromLTWH(
+        frame.offset.dx, frame.offset.dy, frame.size.width, frame.size.height);
+    for (final child in nodes) {
+      if (child.key != frameKey) {
+        if (rect.overlaps(child.rect)) {
+          selection.add(child.key);
+        }
+      }
+    }
+    deselectAll();
+    if (selection.isNotEmpty) {
+      return true;
+    } else {
+      return false;
     }
   }
 
@@ -294,7 +369,7 @@ class InfiniteCanvasController extends ChangeNotifier implements Graph {
     if (_formatter != null) {
       _formatter!(child);
     }
-    nodes.add(child);
+    nodes.insert(nodes.length - 1, child);
     notifyListeners();
   }
 
@@ -416,6 +491,15 @@ class InfiniteCanvasController extends ChangeNotifier implements Graph {
   Offset getOffset() {
     final matrix = transform.value.clone();
     matrix.invert();
+    // matrix.translate(xTranslate, yTranslate);
+    final result = matrix.getTranslation();
+    return Offset(result.x, result.y);
+  }
+
+  Offset getOffsetCenter() {
+    final matrix = transform.value.clone();
+    matrix.invert();
+    matrix.translate(xTranslate, yTranslate);
     final result = matrix.getTranslation();
     return Offset(result.x, result.y);
   }
@@ -425,5 +509,139 @@ class InfiniteCanvasController extends ChangeNotifier implements Graph {
     final scale = matrix.getMaxScaleOnAxis();
     final size = constraints.biggest;
     return offset & size / scale;
+  }
+
+  Future<Uint8List?> captureFrame() async {
+    getNode(frameKey)!.updateVisable(false);
+    _hovered.clear();
+    lockNodes();
+    lockScreen();
+    await Future.delayed(Duration(milliseconds: 500));
+    final canvas =
+        canvasKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+    try {
+      ui.Image image = await canvas.toImage();
+      ByteData? byteData =
+          await image.toByteData(format: ui.ImageByteFormat.png);
+      Uint8List pngBytes = byteData!.buffer.asUint8List();
+      final decodedImage = decodeImage(pngBytes);
+      Offset offset = getNode(frameKey)!.offset;
+      if (decodedImage != null) {
+        final crop = copyCrop(
+          decodedImage,
+          x: offset.dx.toInt(),
+          y: offset.dy.toInt(),
+          width: frameSize.width.toInt(),
+          height: frameSize.height.toInt(),
+        );
+        return Uint8List.fromList(encodePng(crop));
+      }
+    } catch (e) {
+      print(e);
+    } finally {
+      getNode(frameKey)!.updateVisable(true);
+      unlockNodes();
+    }
+    return null;
+  }
+
+  Future<Uint8List?> captureCanvas() async {
+    getNode(frameKey)!.updateVisable(false);
+    _hovered.clear();
+    lockScreen();
+    await Future.delayed(Duration(milliseconds: 500));
+    final canvas =
+        canvasKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+    try {
+      ui.Image image = await canvas.toImage();
+      ByteData? byteData =
+          await image.toByteData(format: ui.ImageByteFormat.png);
+      Uint8List pngBytes = byteData!.buffer.asUint8List();
+      final decodedImage = decodeImage(pngBytes);
+      Rect minSize = getMinSize();
+      if (decodedImage != null) {
+        final crop = copyCrop(
+          decodedImage,
+          x: minSize.topLeft.dx.toInt(),
+          y: minSize.topLeft.dy.toInt(),
+          width: minSize.width.toInt(),
+          height: minSize.height.toInt(),
+        );
+        return Uint8List.fromList(encodePng(crop));
+      }
+    } catch (e) {
+      print(e);
+    } finally {
+      getNode(frameKey)!.updateVisable(true);
+      unlockNodes();
+    }
+    return null;
+  }
+
+  Future<Uint8List> capturePng() async {
+    deselectAll();
+    RenderRepaintBoundary boundary =
+        canvasKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+    ui.Image image = await boundary.toImage();
+    ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+
+    Uint8List pngBytes = byteData!.buffer.asUint8List();
+    return pngBytes;
+  }
+
+  void updateFrameSize(Size size) {
+    frameSize = size;
+    getNode(frameKey)!.updateSize(size);
+    notifyListeners();
+  }
+
+  void hideFrame() {
+    getNode(frameKey)!.updateVisable(false);
+    notifyListeners();
+  }
+
+  void lockScreen() {
+    processing = true;
+    deselectAll();
+    notifyListeners();
+  }
+
+  void lockNodes() {
+    for (final node in nodes) {
+      if (node.key != frameKey) {
+        node.lock();
+      }
+    }
+  }
+
+  void unlockNodes() {
+    processing = false;
+    notifyListeners();
+  }
+
+  void generate(List<String> urls) {
+    var frame = getNode(frameKey)!;
+    var key = UniqueKey();
+    var pController = PageController();
+    pageControllers[key] = pController;
+    final node = InfiniteCanvasNode(
+        key: UniqueKey(),
+        allowResize: false,
+        allowMove: false,
+        size: Size(frame.size.width, frame.size.height + 80),
+        offset: frame.offset,
+        type: 'page',
+        current: 0,
+        children: urls
+            .map(
+              (url) => CachedNetworkImage(
+                imageUrl: url,
+                fit: BoxFit.contain,
+              ),
+            )
+            .toList());
+
+    add(node);
+    setSelection({node.key});
   }
 }

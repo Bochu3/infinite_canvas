@@ -6,11 +6,15 @@ class InfiniteCanvasNode<T> {
     required this.key,
     required this.size,
     required this.offset,
-    required this.child,
+    this.child,
+    this.children,
     this.label,
     this.allowResize = false,
     this.allowMove = true,
     this.clipBehavior = Clip.none,
+    this.visable = true,
+    this.current = 0,
+    this.type,
     this.value,
   });
 
@@ -19,11 +23,16 @@ class InfiniteCanvasNode<T> {
   final LocalKey key;
   late Size size;
   late Offset offset;
+  late bool visable;
+  late int current;
+  String? type;
   String? label;
   T? value;
-  final Widget child;
-  final bool allowResize, allowMove;
+  final Widget? child;
+  final List<Widget>? children;
+  late bool allowResize, allowMove;
   final Clip clipBehavior;
+
   Rect get rect => offset & size;
   static const double dragHandleSize = 10;
   static const double borderInset = 2;
@@ -44,5 +53,31 @@ class InfiniteCanvasNode<T> {
       this.size = size;
     }
     if (label != null) this.label = label;
+  }
+
+  void updateSize(
+    Size? size,
+  ) {
+    if (size != null) {
+      this.size = size;
+    }
+  }
+
+  void updateVisable(bool visable) {
+    this.visable = visable;
+  }
+
+  void lock() {
+    allowMove = false;
+    allowResize = false;
+  }
+
+  void unlock() {
+    allowMove = true;
+    allowResize = true;
+  }
+
+  void updateCurrent(int current) {
+    this.current = current;
   }
 }
