@@ -33,7 +33,7 @@ class InfiniteCanvasController extends ChangeNotifier implements Graph {
   GlobalKey canvasKey = GlobalKey();
   LocalKey frameKey = UniqueKey();
 
-  double minScale = 0.25;
+  double minScale = 0.2;
   double maxScale = 2;
   final focusNode = FocusNode();
   Size? viewport;
@@ -627,9 +627,6 @@ class InfiniteCanvasController extends ChangeNotifier implements Graph {
 
   void generate(List<String> urls) {
     var frame = getNode(frameKey)!;
-    var key = UniqueKey();
-    var pController = PageController();
-    pageControllers[key] = pController;
     final node = InfiniteCanvasNode(
         key: UniqueKey(),
         allowResize: false,
