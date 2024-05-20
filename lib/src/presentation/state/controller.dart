@@ -391,11 +391,11 @@ class InfiniteCanvasController extends ChangeNotifier implements Graph {
   void bringToFront() {
     final selection = _selected.toList();
     for (final key in selection) {
-      final index = nodes.indexWhere((e) => e.key == key);
+      final index = nodes.indexWhere((e) => e.key == key && e.key != frameKey);
       if (index == -1) continue;
       final current = nodes[index];
       nodes.removeAt(index);
-      nodes.add(current);
+      nodes.insert(nodes.length - 1, current);
     }
     notifyListeners();
   }
@@ -404,7 +404,8 @@ class InfiniteCanvasController extends ChangeNotifier implements Graph {
     final selection = _selected.toList();
     if (selection.length == 1) {
       final key = selection.first;
-      final index = nodes.indexWhere((e) => e.key == key);
+      final index = nodes.indexWhere((e) => e.key == key && e.key != frameKey);
+      if (index == nodes.length - 1) return;
       if (index == -1) return;
       if (index == 0) return;
       final current = nodes[index];
@@ -418,12 +419,12 @@ class InfiniteCanvasController extends ChangeNotifier implements Graph {
     final selection = _selected.toList();
     if (selection.length == 1) {
       final key = selection.first;
-      final index = nodes.indexWhere((e) => e.key == key);
+      final index = nodes.indexWhere((e) => e.key == key && e.key != frameKey);
       if (index == -1) return;
       if (index == nodes.length - 1) return;
       final current = nodes[index];
       nodes.removeAt(index);
-      nodes.insert(index + 1, current);
+      nodes.insert(min(index + 1, nodes.length - 1), current);
       notifyListeners();
     }
   }
@@ -431,7 +432,7 @@ class InfiniteCanvasController extends ChangeNotifier implements Graph {
   void sendToBack() {
     final selection = _selected.toList();
     for (final key in selection) {
-      final index = nodes.indexWhere((e) => e.key == key);
+      final index = nodes.indexWhere((e) => e.key == key && e.key != frameKey);
       if (index == -1) continue;
       final current = nodes[index];
       nodes.removeAt(index);
@@ -443,21 +444,26 @@ class InfiniteCanvasController extends ChangeNotifier implements Graph {
   void deleteSelection() {
     final selection = _selected.toList();
     for (final key in selection) {
-      final index = nodes.indexWhere((e) => e.key == key);
+      final index = nodes.indexWhere((e) => e.key == key && e.key != frameKey);
       if (index == -1) continue;
       nodes.removeAt(index);
       _selectedOrigins.remove(key);
     }
-    // Delete related connections
-    edges.removeWhere(
-      (e) => selection.contains(e.from) || selection.contains(e.to),
-    );
+    notifyListeners();
+  }
+
+  void deleteAll() {
+    nodes.where((element) => element.key != frameKey).toList().clear();
+    _selectedOrigins.clear();
     notifyListeners();
   }
 
   void selectAll() {
     _selected.clear();
-    _selected.addAll(nodes.map((e) => e.key).toList());
+    _selected.addAll(nodes
+        .where((element) => element.key != frameKey)
+        .map((e) => e.key)
+        .toList());
     _cacheSelectedOrigins();
     notifyListeners();
   }
@@ -591,7 +597,7 @@ class InfiniteCanvasController extends ChangeNotifier implements Graph {
 
   void updateFrameSize(Size size) {
     frameSize = size;
-    getNode(frameKey)!.updateSize(size);
+    getNode(frameKey)?.updateSize(size);
     notifyListeners();
   }
 

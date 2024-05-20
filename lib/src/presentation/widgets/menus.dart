@@ -121,78 +121,32 @@ class _MenusState extends State<Menus> {
                   widget.controller.nodes.length
               ? null
               : widget.controller.selectAll,
-          shortcut: const SingleActivator(
-            LogicalKeyboardKey.keyA,
-            meta: true,
-          ),
         ),
         MenuEntry(
           label: 'Deselect All',
           onPressed: widget.controller.selection.isEmpty
               ? null
               : widget.controller.deselectAll,
-          shortcut: const SingleActivator(
-            LogicalKeyboardKey.keyA,
-            meta: true,
-            shift: true,
-          ),
         ),
         MenuEntry(
           label: 'Send to back',
           onPressed: widget.controller.sendToBack,
-          shortcut: const SingleActivator(
-            LogicalKeyboardKey.bracketLeft,
-          ),
         ),
         MenuEntry(
           label: 'Send backward',
           onPressed: widget.controller.selection.length == 1
               ? widget.controller.sendBackward
               : null,
-          shortcut: const SingleActivator(
-            LogicalKeyboardKey.bracketLeft,
-            meta: true,
-          ),
         ),
         MenuEntry(
           label: 'Bring forward',
           onPressed: widget.controller.selection.length == 1
               ? widget.controller.sendForward
               : null,
-          shortcut: const SingleActivator(
-            LogicalKeyboardKey.bracketRight,
-            meta: true,
-          ),
         ),
         MenuEntry(
           label: 'Bring to front',
           onPressed: widget.controller.bringToFront,
-          shortcut: const SingleActivator(
-            LogicalKeyboardKey.bracketRight,
-          ),
-        ),
-        MenuEntry(
-          label: 'Rename',
-          onPressed: widget.controller.selection.length == 1
-              ? () {
-                  final item = widget.controller.selection.first;
-                  widget.controller.focusNode.unfocus();
-                  prompt(
-                    context,
-                    title: 'Rename child',
-                    value: item.label,
-                  ).then((value) {
-                    widget.controller.focusNode.requestFocus();
-                    if (value == null) return;
-                    item.update(label: value);
-                    widget.controller.edit(item);
-                  });
-                }
-              : null,
-          shortcut: const SingleActivator(
-            LogicalKeyboardKey.keyR,
-            meta: true,
-          ),
         ),
         MenuEntry(
           label: 'Delete',
@@ -216,26 +170,26 @@ class _MenusState extends State<Menus> {
   List<MenuEntry> merge(BuildContext context) {
     final menus = <MenuEntry>[];
     menus.addAll(widget.menus);
-    if (!menus.map((e) => e.label).contains('View')) {
-      menus.add(buildView(context));
-    } else {
-      final idx = menus.indexWhere((e) => e.label == 'View');
-      final value = menus[idx];
-      final children = value.menuChildren ?? [];
-      final merged = buildView(context).merge(children);
-      menus.removeAt(idx);
-      menus.insert(idx, merged);
-    }
-    if (!menus.map((e) => e.label).contains('Edit')) {
-      menus.add(buildEdit(context));
-    } else {
-      final idx = menus.indexWhere((e) => e.label == 'Edit');
-      final value = menus[idx];
-      final children = value.menuChildren ?? [];
-      final merged = buildEdit(context).merge(children);
-      menus.removeAt(idx);
-      menus.insert(idx, merged);
-    }
+    // if (!menus.map((e) => e.label).contains('View')) {
+    //   menus.add(buildView(context));
+    // } else {
+    //   final idx = menus.indexWhere((e) => e.label == 'View');
+    //   final value = menus[idx];
+    //   final children = value.menuChildren ?? [];
+    //   final merged = buildView(context).merge(children);
+    //   menus.removeAt(idx);
+    //   menus.insert(idx, merged);
+    // }
+    // if (!menus.map((e) => e.label).contains('Edit')) {
+    //   menus.add(buildEdit(context));
+    // } else {
+    //   final idx = menus.indexWhere((e) => e.label == 'Edit');
+    //   final value = menus[idx];
+    //   final children = value.menuChildren ?? [];
+    //   final merged = buildEdit(context).merge(children);
+    //   menus.removeAt(idx);
+    //   menus.insert(idx, merged);
+    // }
     if (widget.renameLabel != null) {
       for (var i = 0; i < menus.length; i++) {
         final label = widget.renameLabel!(menus[i].label);
@@ -247,14 +201,14 @@ class _MenusState extends State<Menus> {
 
   List<MenuEntry> createMenus(BuildContext context) {
     final result = merge(context);
-    _shortcutsEntry?.dispose();
-    final registry = ShortcutRegistry.of(context);
-    final items = MenuEntry.shortcuts(result);
-    if (items.isNotEmpty) {
-      _shortcutsEntry = registry.addAll(items);
-    } else {
-      _shortcutsEntry = null;
-    }
+    // _shortcutsEntry?.dispose();
+    // final registry = ShortcutRegistry.of(context);
+    // final items = MenuEntry.shortcuts(result);
+    // if (items.isNotEmpty) {
+    //   _shortcutsEntry = registry.addAll(items);
+    // } else {
+    //   _shortcutsEntry = null;
+    // }
     return result;
   }
 
