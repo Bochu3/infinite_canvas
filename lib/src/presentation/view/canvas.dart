@@ -31,6 +31,8 @@ class InfiniteCanvas extends StatefulWidget {
       this.drawVisibleOnly = false,
       this.canAddEdges = false,
       this.canvasSize = const Size(4096, 4096),
+      this.minScale = 0.2,
+      this.maxScale = 2,
       this.edgesUseStraightLines = false});
 
   final InfiniteCanvasController controller;
@@ -41,6 +43,9 @@ class InfiniteCanvas extends StatefulWidget {
   final bool canAddEdges;
   final bool edgesUseStraightLines;
   final Size canvasSize;
+  final double minScale;
+  final double maxScale;
+  final double initialScale = 0.5;
   final Widget Function(BuildContext, Rect)? backgroundBuilder;
 
   @override
@@ -54,6 +59,8 @@ class InfiniteCanvasState extends State<InfiniteCanvas> {
     controller.addListener(onUpdate);
     controller.focusNode.requestFocus();
     controller.canvasSize = widget.canvasSize;
+    controller.minScale = widget.minScale;
+    controller.maxScale = widget.maxScale;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       controller.xTranslate = MediaQuery.of(context).size.width / 6;
       controller.yTranslate = MediaQuery.of(context).size.height / 6;
@@ -79,6 +86,7 @@ class InfiniteCanvasState extends State<InfiniteCanvas> {
             controller.yTranslate,
           )));
     });
+    controller.zoomReset(scale: widget.initialScale);
     controller.nodes.add(InfiniteCanvasNode(
         key: controller.frameKey,
         label: 'frame',

@@ -75,7 +75,7 @@ class InfiniteCanvasController extends ChangeNotifier implements Graph {
   }
 
   final Map<Key, Offset> _selectedOrigins = {};
-  final initialMatrix = Matrix4.identity()..scale(0.4);
+  final initialMatrix = Matrix4.identity()..scale(0.5);
   late final transform = TransformationController(initialMatrix);
   Matrix4 get matrix => transform.value;
   late double xTranslate;
@@ -480,7 +480,8 @@ class InfiniteCanvasController extends ChangeNotifier implements Graph {
 
   void zoomIn() => zoom(1.1);
   void zoomOut() => zoom(0.9);
-  void zoomReset() => transform.value = Matrix4.identity();
+  void zoomReset({double scale = 0.5}) =>
+      transform.value = Matrix4.identity()..scale(scale);
 
   void pan(Offset delta) {
     final matrix = transform.value.clone();
