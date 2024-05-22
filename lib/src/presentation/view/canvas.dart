@@ -33,6 +33,7 @@ class InfiniteCanvas extends StatefulWidget {
       this.canvasSize = const Size(4096, 4096),
       this.minScale = 0.2,
       this.maxScale = 2,
+      this.initialScale = 0.5,
       this.edgesUseStraightLines = false});
 
   final InfiniteCanvasController controller;
@@ -45,7 +46,7 @@ class InfiniteCanvas extends StatefulWidget {
   final Size canvasSize;
   final double minScale;
   final double maxScale;
-  final double initialScale = 0.5;
+  final double initialScale;
   final Widget Function(BuildContext, Rect)? backgroundBuilder;
 
   @override
